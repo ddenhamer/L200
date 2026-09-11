@@ -26,6 +26,7 @@ The retrieved FDA drug information is provided in your context:
 
 If a previous draft was reviewed and critique was provided, it is available below:
 <critique>
+{judge_critique}
 {judge_critique?}
 </critique>
 
