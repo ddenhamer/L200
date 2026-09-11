@@ -23,6 +23,12 @@ from fda_patient_agent.tools import (
     approve_patient_response,
     reject_patient_response,
     get_openfda_mcp_toolset,
+    DrugSearchInput,
+    DrugLabelData,
+    DrugSearchOutput,
+    JudgeApprovalInput,
+    JudgeRejectionInput,
+    JudgeDecisionOutput,
 )
 
 
@@ -167,4 +173,71 @@ def test_translator_prompt_template_optional_critique():
     from fda_patient_agent.prompts import TRANSLATOR_PROMPT
     assert "{judge_critique?}" in TRANSLATOR_PROMPT
     assert "{judge_critique}" not in TRANSLATOR_PROMPT
+
+
+def test_drug_search_pydantic_models():
+    """Verify DrugSearchInput validation and DrugSearchOutput schema."""
+    valid_input = DrugSearchInput(drug_name="metformin")
+    assert valid_input.drug_name == "metformin"
+
+    res = search_fda_drug_label(valid_input)
+    assert isinstance(res, DrugSearchOutput)
+    assert res.status == "success"
+    assert res.found is True
+    assert isinstance(res.data, DrugLabelData)
+    assert res.data.generic_name == "Metformin Hydrochloride"
+    assert res.recovery_instructions is None
+
+
+def test_drug_search_error_recovery_instructions():
+    """Verify tool returns structured recovery instructions on failure or empty input."""
+    empty_res = search_fda_drug_label("")
+    assert isinstance(empty_res, DrugSearchOutput)
+    assert empty_res.status == "error"
+    assert empty_res.found is False
+    assert empty_res.recovery_instructions is not None
+    assert "empty" in empty_res.recovery_instructions.lower() or "suggested recovery" in empty_res.recovery_instructions.lower()
+
+    ws_res = search_fda_drug_label("   ")
+    assert ws_res.status == "error"
+    assert ws_res.recovery_instructions is not None
+
+
+def test_judge_approval_error_recovery_when_draft_missing():
+    """Verify approve_patient_response returns recovery instructions when patient_draft is absent."""
+    ctx = DummyToolContext(state={})
+    res = approve_patient_response(
+        feedback="Looks good and simple.",
+        tool_context=ctx,
+    )
+    assert isinstance(res, JudgeDecisionOutput)
+    assert res.status == "error"
+    assert res.recovery_instructions is not None
+    assert "patient_draft" in res.recovery_instructions
+
+
+def test_judge_approval_empty_feedback_error_recovery():
+    """Verify approval with empty feedback returns recovery instructions."""
+    ctx = DummyToolContext(state={"patient_draft": "Sample text"})
+    res = approve_patient_response(
+        feedback="   ",
+        tool_context=ctx,
+    )
+    assert isinstance(res, JudgeDecisionOutput)
+    assert res.status == "error"
+    assert res.recovery_instructions is not None
+
+
+def test_judge_rejection_recovery_instructions():
+    """Verify reject_patient_response returns recovery instructions for the translator."""
+    ctx = DummyToolContext(state={"patient_draft": "Complicated clinical text"})
+    res = reject_patient_response(
+        critique="The explanation uses 'contraindications' without defining it.",
+        tool_context=ctx,
+    )
+    assert isinstance(res, JudgeDecisionOutput)
+    assert res.status == "rejected"
+    assert res.recovery_instructions is not None
+    assert "B1" in res.recovery_instructions
+
 
