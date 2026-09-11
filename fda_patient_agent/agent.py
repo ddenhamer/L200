@@ -23,6 +23,7 @@ from .prompts import RESPONDER_PROMPT
 from .sub_agents.drug_info_agent import create_drug_info_agent
 from .sub_agents.translator_agent import create_translator_agent
 from .sub_agents.judge_agent import create_judge_agent
+from .guardrails import ModelArmorPiiPlugin
 
 
 def build_pipeline(
@@ -84,13 +85,16 @@ root_agent = build_pipeline(use_mcp=_use_mcp_env)
 # App wrapper configured for Google Cloud Agent Runtime
 # - ResumabilityConfig: ensures sessions survive drops and recover their state seamlessly
 # - EventsCompactionConfig: compacts older events to maintain optimal context window
+# - ModelArmorPiiPlugin: scrubs PII/PHI so sensitive tokens never enter traces or state
 app = App(
     name="fda_patient_agent",
     root_agent=root_agent,
+    plugins=[ModelArmorPiiPlugin()],
     resumability_config=ResumabilityConfig(is_resumable=True),
     events_compaction_config=EventsCompactionConfig(
         compaction_interval=5,
         overlap_size=1,
     ),
 )
+
 

@@ -81,6 +81,11 @@ The agent strictly refuses to prescribe, diagnose, or advise patients to change 
 - **Resumability:** Configured with `ResumabilityConfig(is_resumable=True)` to resume execution from the exact sub-agent state without repeating expensive tool calls.
 - **Built-in Observability & OpenTelemetry:** Fully instrumented with OpenTelemetry semantic conventions for Generative AI traces.
 
+### 5. PII/PHI Redaction via Model Armor & Cloud DLP
+- **Healthcare Safe Harbor:** Intercepts patient prompts and model responses using `ModelArmorPiiPlugin` to scrub names, SSNs, phone numbers, emails, and medical record numbers into semantic tokens (`[PERSON_NAME]`, `[DATE_OF_BIRTH]`, `[US_SSN]`).
+- **Telemetry Protection:** Sanitization executes *before* model invocation, guaranteeing that OpenTelemetry Generative AI traces (`EVENT_ONLY`) and Agent Runtime session memory never store unredacted PHI.
+- **Infrastructure as Code (Terraform):** Complete Terraform module in `terraform/` defining Google Cloud Sensitive Data Protection (DLP) de-identification templates and Model Armor guardrails.
+
 ---
 
 ## Project Structure
@@ -92,22 +97,31 @@ L200/
 │   ├── agent.py                  # Pipeline composition, App configuration, and tracing setup
 │   ├── prompts.py                # System prompts for retrieval, translation, judge, and responder
 │   ├── tools.py                  # OpenFDA MCPToolset, approve/reject tools, and fallback tools
+│   ├── guardrails/
+│   │   ├── __init__.py
+│   │   └── pii_plugin.py         # Model Armor & Cloud DLP PII/PHI redaction plugin
 │   └── sub_agents/
 │       ├── __init__.py           # Sub-agent exports
 │       ├── drug_info_agent.py    # OpenFDA retrieval agent
 │       ├── translator_agent.py   # B1 English translation agent
 │       └── judge_agent.py        # LLM-as-a-Judge gatekeeper agent
+├── terraform/
+│   ├── main.tf                   # Cloud DLP de-identify template & Model Armor template
+│   ├── variables.tf              # GCP project, region, and template configurations
+│   └── outputs.tf                # Template IDs and resource references
 ├── eval/
 │   ├── patient_agent.evalset.json # ADK evaluation dataset covering common, OTC, and safety boundary cases
 │   ├── test_config.json          # Rubric configuration for B1 readability & medical advice prevention
 │   └── run_eval.py               # Automated evaluation benchmark script
 ├── tests/
 │   ├── __init__.py
-│   └── test_agent.py             # Pytest suite verifying architecture, tools, and session lifecycle
+│   ├── test_agent.py             # Pytest suite verifying architecture, tools, and session lifecycle
+│   └── test_pii_sanitizer.py     # Tests for PII/PHI redaction and plugin callbacks
 ├── .env.example                  # Environment configuration template
 ├── pyproject.toml                # Dependencies (google-adk>=2.0.0, mcp>=1.0.0,<2.0.0, pydantic)
 └── README.md
 ```
+
 
 ---
 
@@ -150,12 +164,13 @@ os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = "EVENT_ONLY"
 ### 1. Run Unit & Integration Tests
 Execute the pytest suite:
 ```bash
-python3 -m pytest tests/test_agent.py -v
+python3 -m pytest tests/ -v
 ```
 
-All 8 tests verify:
+All 16 tests verify:
 - Pipeline composition and sub-agent bindings
 - `App` configuration and `ResumabilityConfig(is_resumable=True)`
+- ModelArmor PII/PHI redaction plugin and semantic token replacement
 - OpenTelemetry environment setup
 - OpenFDA data retrieval and fallback mechanisms
 - Official MCPToolset instantiation
@@ -173,6 +188,23 @@ This runs test cases across:
 1. **Lisinopril:** Prescription hypertension medication and cough adverse reaction.
 2. **Ibuprofen:** OTC NSAID warnings regarding stomach ulcers and asthma risk.
 3. **Metformin:** Safety boundary test checking that the agent refuses to give dosing advice for a missed dose and instructs consulting a physician.
+
+---
+
+## Infrastructure Provisioning (Terraform)
+
+Provision the Google Cloud Sensitive Data Protection (DLP) and Model Armor templates:
+
+```bash
+cd terraform
+terraform init
+terraform apply -var="project_id=YOUR_PROJECT_ID" -var="region=us-central1"
+```
+
+This outputs `model_armor_template_id`, which can be set in your `.env`:
+```bash
+export MODEL_ARMOR_TEMPLATE_ID="fda-patient-agent-model-armor"
+```
 
 ---
 
@@ -197,4 +229,6 @@ adk deploy agent_engine \
 - **Session Memory:** Agent Runtime backs sessions with Google Cloud's managed session service (`VertexAiSessionService`), maintaining memory across connection drops.
 - **Resumability:** If an invocation is interrupted during a tool call or review step, the agent resumes seamlessly without repeating completed actions.
 - **Tracing & Observability:** All agent events, model calls, and tool interactions are automatically exported to Google Cloud Trace.
+- **Data Protection:** Paired with `ModelArmorPiiPlugin`, sensitive health identifiers are sanitized prior to reaching session memory or trace logs.
+
 
