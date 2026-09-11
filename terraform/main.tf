@@ -22,6 +22,7 @@ resource "google_project_service" "enabled_apis" {
     "dlp.googleapis.com",           # Sensitive Data Protection (Cloud DLP)
     "modelarmor.googleapis.com",    # Model Armor LLM Guardrails
     "cloudtrace.googleapis.com",    # OpenTelemetry Cloud Trace
+    "telemetry.googleapis.com",     # Google Cloud Telemetry API (OTLP trace ingestion)
     "logging.googleapis.com",       # Cloud Logging (Structured JSON logs)
     "secretmanager.googleapis.com", # Secret Manager for API Keys
   ])

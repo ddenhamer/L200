@@ -149,8 +149,10 @@ export GOOGLE_API_KEY="your-gemini-api-key"
 
 ### OpenTelemetry Tracing
 
-These are automatically enabled in `fda_patient_agent/agent.py`:
+These are automatically enabled in `fda_patient_agent/agent.py` and `.env`:
 ```python
+# Enable OpenTelemetry telemetry export to Cloud Trace & Cloud Logging in Agent Engine
+os.environ["GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY"] = "true"
 # Enable OpenTelemetry semantic conventions for Generative AI
 os.environ["OTEL_SEMCONV_STABILITY_OPT_IN"] = "gen_ai_latest_experimental"
 # Ensure full message content (prompts & responses) is captured in trace events
@@ -210,6 +212,8 @@ export MODEL_ARMOR_TEMPLATE_ID="fda-patient-agent-model-armor"
 
 ## Deployment to Agent Runtime
 
+### Option A: Deploy via ADK CLI
+
 Deploy directly to Google Cloud Agent Runtime (Vertex AI Agent Engine) using the ADK CLI:
 
 ```bash
@@ -217,18 +221,53 @@ Deploy directly to Google Cloud Agent Runtime (Vertex AI Agent Engine) using the
 gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
 
-# 2. Deploy to Agent Runtime
+# 2. Deploy to Agent Runtime (with OpenTelemetry tracing enabled)
 adk deploy agent_engine \
   --project=YOUR_PROJECT_ID \
   --region=us-central1 \
-  --agent=fda_patient_agent \
-  --display_name="FDA Patient Drug Advocate"
+  --otel_to_cloud \
+  fda_patient_agent
 ```
+
+### Option B: Deploy via Python SDK (Manual API Deployment)
+
+When creating or deploying the agent programmatically via the Vertex AI SDK:
+
+```python
+from vertexai import agent_engines
+from fda_patient_agent.agent import app
+
+remote_agent = agent_engines.create(
+    app,
+    display_name="FDA Patient Drug Advocate",
+    env_vars={
+        "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
+        "OTEL_SEMCONV_STABILITY_OPT_IN": "gen_ai_latest_experimental",
+        "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "EVENT_ONLY",
+        "GOOGLE_GENAI_USE_VERTEXAI": "true",
+        "MODEL_ARMOR_TEMPLATE_ID": "fda-patient-agent-model-armor",
+    },
+    requirements=[
+        "google-cloud-aiplatform[agent_engines,adk]>=1.126.1",
+        "google-adk[a2a]>=2.0.0",
+        "pydantic>=2.0.0",
+        "mcp>=1.0.0,<2.0.0",
+        "structlog>=24.0.0",
+    ],
+)
+```
+
+> [!NOTE]
+> **Observability in Cloud Console ("Settings not available for this agent")**
+> If you navigate to the Observability tab in the Google Cloud Console for an API-deployed agent, you will see:
+> `Observability settings are not available for this agent. Manual API deployment: If your agent is using newer versions, but deployed via the API, you need to set environment variables explicitly.`
+> 
+> This is normal for all code/API-deployed agents because the Cloud Console UI does not mutate runtime environment variables post-deployment. As long as `GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY=true`, `OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental`, and `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=EVENT_ONLY` are passed during deployment (or set at the root of `agent.py`), full distributed traces, prompts, responses, and metrics are actively written to Cloud Trace and Cloud Logging.
 
 ### What Agent Runtime Handles Automatically
 - **Session Memory:** Agent Runtime backs sessions with Google Cloud's managed session service (`VertexAiSessionService`), maintaining memory across connection drops.
 - **Resumability:** If an invocation is interrupted during a tool call or review step, the agent resumes seamlessly without repeating completed actions.
-- **Tracing & Observability:** All agent events, model calls, and tool interactions are automatically exported to Google Cloud Trace.
+- **Tracing & Observability:** All agent events, model calls, and tool interactions are automatically exported to Google Cloud Trace and Cloud Logging.
 - **Data Protection:** Paired with `ModelArmorPiiPlugin`, sensitive health identifiers are sanitized prior to reaching session memory or trace logs.
 
 

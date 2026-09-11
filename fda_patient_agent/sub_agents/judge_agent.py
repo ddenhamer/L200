@@ -7,7 +7,7 @@ from ..tools import approve_patient_response, reject_patient_response
 
 
 def create_judge_agent(
-    model: str = "gemini-flash-latest",
+    model: str = "gemini-2.5-flash",
     custom_tools: Optional[List[Any]] = None,
 ) -> LlmAgent:
     """Create the LLM-as-a-Judge Reviewer Agent.

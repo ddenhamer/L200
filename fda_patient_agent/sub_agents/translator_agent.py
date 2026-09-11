@@ -5,7 +5,7 @@ from ..prompts import TRANSLATOR_PROMPT
 
 
 def create_translator_agent(
-    model: str = "gemini-flash-latest",
+    model: str = "gemini-2.5-flash",
 ) -> LlmAgent:
     """Create the Patient Translation Agent.
 

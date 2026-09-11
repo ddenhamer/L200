@@ -440,7 +440,13 @@ def get_openfda_mcp_toolset(
     try:
         from google.adk.tools.mcp_tool import McpToolset as ToolsetClass
     except ImportError:
-        from google.adk.tools.mcp_tool import MCPToolset as ToolsetClass
+        try:
+            from google.adk.tools.mcp_tool import MCPToolset as ToolsetClass
+        except ImportError as exc:
+            raise ImportError(
+                "Could not import McpToolset from google.adk.tools.mcp_tool. "
+                "Ensure 'mcp' is installed ('pip install mcp>=1.0.0')."
+            ) from exc
     from google.adk.tools.mcp_tool import StdioConnectionParams
     from mcp import StdioServerParameters
 

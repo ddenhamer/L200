@@ -11,14 +11,16 @@ Configured for deployment to Google Cloud Agent Runtime with:
 import os
 from typing import Optional
 
+# Enable OpenTelemetry tracing and metrics for Google Cloud Agent Runtime / Agent Engine
+os.environ.setdefault("GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY", "true")
 # Enable OpenTelemetry semantic conventions for Generative AI
 os.environ["OTEL_SEMCONV_STABILITY_OPT_IN"] = "gen_ai_latest_experimental"
 # Ensure the full message content (prompts & responses) is captured in the trace events
 os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = "EVENT_ONLY"
 
 # Set Argolis GCP project and region for Vertex AI
-os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "#######")
-os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
+os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "610671234434")
+os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "europe-west2")
 os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "true")
 
 
@@ -33,27 +35,34 @@ from .guardrails import ModelArmorPiiPlugin
 
 
 def build_pipeline(
-    model: str = "gemini-3.5-flash-lite",
+    model: Optional[str] = None,
     use_mcp: bool = True,
     max_loop_iterations: int = 3,
 ) -> SequentialAgent:
     """Construct the full multi-agent sequential pipeline with translation loop.
 
     Args:
-        model: Model identifier for Gemini models.
+        model: Model identifier for Gemini models (defaults to MODEL_NAME env var or gemini-2.5-flash).
         use_mcp: Whether to use live OpenFDA MCPToolset (True) or fallback tool (False).
         max_loop_iterations: Maximum review attempts before terminating loop.
 
     Returns:
         SequentialAgent coordinating drug retrieval, translation loop, and final delivery.
     """
-    drug_info_agent = create_drug_info_agent(model=model, use_mcp=use_mcp)
-    translator_agent = create_translator_agent(model=model)
-    judge_agent = create_judge_agent(model=model)
+    model_name = (
+        model
+        or os.getenv("MODEL_NAME")
+        or os.getenv("GEMINI_MODEL")
+        or os.getenv("ADK_MODEL")
+        or "gemini-2.5-flash"
+    )
+    drug_info_agent = create_drug_info_agent(model=model_name, use_mcp=use_mcp)
+    translator_agent = create_translator_agent(model=model_name)
+    judge_agent = create_judge_agent(model=model_name)
 
     responder_agent = LlmAgent(
         name="patient_responder",
-        model=model,
+        model=model_name,
         description="Delivers the final approved patient-friendly explanation with medical disclaimer.",
         instruction=RESPONDER_PROMPT,
         output_key="final_patient_response",
@@ -82,8 +91,10 @@ def build_pipeline(
     return root
 
 
-# Determine MCP usage from environment; defaults to True (official MCP) but can be toggled
-_use_mcp_env = os.getenv("USE_OPENFDA_MCP", "true").lower() in ("true", "1", "yes")
+# Determine MCP usage from environment; defaults to True if npx is present on the PATH, else False
+import shutil
+_default_mcp = "true" if shutil.which("npx") else "false"
+_use_mcp_env = os.getenv("USE_OPENFDA_MCP", _default_mcp).lower() in ("true", "1", "yes")
 
 # Root agent entrypoint for ADK CLI, tests, and Agent Runtime
 root_agent = build_pipeline(use_mcp=_use_mcp_env)

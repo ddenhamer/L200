@@ -1,0 +1,5 @@
+google-cloud-aiplatform[agent_engines,adk]>=1.126.1
+google-adk[a2a]>=2.0.0
+pydantic>=2.0.0
+mcp>=1.0.0,<2.0.0
+structlog>=24.0.0

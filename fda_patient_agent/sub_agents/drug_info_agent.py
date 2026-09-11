@@ -7,7 +7,7 @@ from ..tools import search_fda_drug_label, get_openfda_mcp_toolset
 
 
 def create_drug_info_agent(
-    model: str = "gemini-flash-latest",
+    model: str = "gemini-2.5-flash",
     use_mcp: bool = False,
     custom_tools: Optional[List[Any]] = None,
 ) -> LlmAgent:
@@ -24,7 +24,15 @@ def create_drug_info_agent(
     if custom_tools is not None:
         tools = custom_tools
     elif use_mcp:
-        tools = [get_openfda_mcp_toolset()]
+        try:
+            tools = [get_openfda_mcp_toolset()]
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Unable to initialize OpenFDA MCP toolset (%s); falling back to search_fda_drug_label.",
+                exc,
+            )
+            tools = [search_fda_drug_label]
     else:
         # Default fallback tool for offline/testing and sandbox environments
         tools = [search_fda_drug_label]

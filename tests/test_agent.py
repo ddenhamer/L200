@@ -87,8 +87,21 @@ def test_app_configuration():
 
 def test_opentelemetry_env_vars():
     """Verify OpenTelemetry Generative AI tracing environment variables are active."""
+    assert os.getenv("GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY") == "true"
     assert os.getenv("OTEL_SEMCONV_STABILITY_OPT_IN") == "gen_ai_latest_experimental"
     assert os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT") == "EVENT_ONLY"
+
+
+def test_model_configuration():
+    """Verify build_pipeline respects model parameter and MODEL_NAME environment variable."""
+    pipeline_custom = build_pipeline(model="custom-gemini-test", use_mcp=False)
+    assert pipeline_custom.sub_agents[0].model == "custom-gemini-test"
+    assert pipeline_custom.sub_agents[2].model == "custom-gemini-test"
+
+    os.environ["MODEL_NAME"] = "gemini-2.5-flash"
+    pipeline_env = build_pipeline(use_mcp=False)
+    assert pipeline_env.sub_agents[0].model == "gemini-2.5-flash"
+    assert pipeline_env.sub_agents[2].model == "gemini-2.5-flash"
 
 
 def test_openfda_search_tool():

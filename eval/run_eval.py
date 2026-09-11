@@ -25,6 +25,7 @@ if workspace_dir not in sys.path:
     sys.path.insert(0, workspace_dir)
 
 # Set OpenTelemetry environment variables
+os.environ["GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY"] = "true"
 os.environ["OTEL_SEMCONV_STABILITY_OPT_IN"] = "gen_ai_latest_experimental"
 os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = "EVENT_ONLY"
 os.environ["USE_OPENFDA_MCP"] = "false"  # Default to reproducible test database for evaluation
