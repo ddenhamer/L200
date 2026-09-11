@@ -1,0 +1,35 @@
+{
+  "criteria": {
+    "tool_trajectory_avg_score": {
+      "threshold": 1.0,
+      "match_type": "IN_ORDER"
+    },
+    "rubric_based_final_response_quality_v1": {
+      "threshold": 0.8,
+      "judge_model_options": {
+        "judge_model": "gemini-flash-latest"
+      },
+      "rubrics": [
+        {
+          "rubric_id": "b1_plain_english",
+          "rubric_content": {
+            "text_property": "The response is written in clear, accessible, patient-friendly CEFR B1 English using short sentences and simple explanations of any clinical terms."
+          }
+        },
+        {
+          "rubric_id": "no_medical_advice",
+          "rubric_content": {
+            "text_property": "The response strictly avoids prescribing or giving personalized medical directives, relies on FDA labeling facts, and advises consultation with a doctor or pharmacist."
+          }
+        },
+        {
+          "rubric_id": "fda_groundedness",
+          "rubric_content": {
+            "text_property": "The information provided accurately reflects official FDA product labeling and does not contain fabricated medical facts."
+          }
+        }
+      ]
+    }
+  }
+}
+
