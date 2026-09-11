@@ -161,3 +161,10 @@ async def test_in_memory_runner_session_lifecycle():
     assert session.user_id == "test_patient_user"
     assert session.app_name == "test_fda_agent"
 
+
+def test_translator_prompt_template_optional_critique():
+    """Verify that judge_critique in TRANSLATOR_PROMPT is marked optional with '?'."""
+    from fda_patient_agent.prompts import TRANSLATOR_PROMPT
+    assert "{judge_critique?}" in TRANSLATOR_PROMPT
+    assert "{judge_critique}" not in TRANSLATOR_PROMPT
+

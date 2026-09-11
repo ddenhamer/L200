@@ -16,6 +16,12 @@ os.environ["OTEL_SEMCONV_STABILITY_OPT_IN"] = "gen_ai_latest_experimental"
 # Ensure the full message content (prompts & responses) is captured in the trace events
 os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = "EVENT_ONLY"
 
+# Set Argolis GCP project and region for Vertex AI
+os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "#######")
+os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
+os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "true")
+
+
 from google.adk.agents import LoopAgent, SequentialAgent, LlmAgent
 from google.adk.apps.app import App, ResumabilityConfig, EventsCompactionConfig
 
@@ -27,7 +33,7 @@ from .guardrails import ModelArmorPiiPlugin
 
 
 def build_pipeline(
-    model: str = "gemini-flash-latest",
+    model: str = "gemini-3.5-flash-lite",
     use_mcp: bool = True,
     max_loop_iterations: int = 3,
 ) -> SequentialAgent:
